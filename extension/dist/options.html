@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Configurações - NexusCore</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f9fafb;
+      color: #111827;
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    .dark {
+      background-color: #09090b;
+      color: #fafafa;
+    }
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem;
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .dark .container {
+      background-color: #18181b;
+      border-color: #27272a;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+    .dark p {
+      color: #a1a1aa;
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid #d1d5db;
+      background-color: #f9fafb;
+      font-size: 0.875rem;
+    }
+    .dark input[type="text"], .dark input[type="password"] {
+      border-color: #3f3f46;
+      background-color: #27272a;
+      color: #fafafa;
+    }
+    button {
+      width: 100%;
+      padding: 0.6rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      color: white;
+      font-weight: 600;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    #status {
+      margin-top: 1rem;
+      text-align: center;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Configuração NexusCore</h1>
+    <p>Insira as chaves fornecidas pelo seu administrador.</p>
+    
+    <div class="form-group">
+      <label for="teamId">ID da Equipe (Token)</label>
+      <input type="password" id="teamId" placeholder="Cole o ID da Equipe aqui">
+    </div>
+    
+    <div class="form-group">
+      <label for="memberId">ID do Membro (Usuário do S.O. ou PC ID)</label>
+      <input type="text" id="memberId" placeholder="Ex: joao.silva ou laptop-01">
+    </div>
+    
+    <button id="save">Salvar Configurações</button>
+    <div id="status"></div>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html>
