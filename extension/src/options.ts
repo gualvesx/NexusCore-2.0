@@ -1,159 +1,162 @@
-console.log("Options page loaded. No imports here.");
+import { auth } from './lib/firebase';
+import { 
+  signInWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
 
-// --- Elementos da UI ---
-const modeSelector = document.getElementById('auth-mode') as HTMLSelectElement;
-const tokenSection = document.getElementById('token-section');
-const loginSection = document.getElementById('login-section');
+// Elementos
+const authModeSelect = document.getElementById('auth-mode') as HTMLSelectElement;
+const tokenSection = document.getElementById('token-section') as HTMLDivElement;
+const loginSection = document.getElementById('login-section') as HTMLDivElement;
 
-// --- Seção Token (Modo 1/3) ---
-const saveButton = document.getElementById('save-token') as HTMLButtonElement;
 const teamIdInput = document.getElementById('teamId') as HTMLInputElement;
 const memberIdInput = document.getElementById('memberId') as HTMLInputElement;
-const statusToken = document.getElementById('status-token')!;
+const saveTokenBtn = document.getElementById('save-token') as HTMLButtonElement;
+const statusToken = document.getElementById('status-token') as HTMLDivElement;
 
-saveButton?.addEventListener('click', () => {
-  const teamId = teamIdInput.value;
-  const memberId = memberIdInput.value;
-
-  if (!teamId || !memberId) {
-    statusToken.textContent = 'Erro: Preencha todos os campos.';
-    statusToken.style.color = 'red';
-    return;
-  }
-
-  // Salva no storage e define o modo
-  chrome.storage.sync.set(
-    {
-      authMode: 'token',
-      teamId: teamId,
-      memberId: memberId,
-    },
-    () => {
-      statusToken.textContent = 'Modo Token salvo!';
-      statusToken.style.color = 'green';
-      setTimeout(() => { statusToken.textContent = ''; }, 2000);
-    }
-  );
-});
-
-// --- Seção Login (Modo 2) ---
-const loginGoogleButton = document.getElementById('login-google') as HTMLButtonElement;
-const loginEmailButton = document.getElementById('login-email') as HTMLButtonElement;
-const logoutButton = document.getElementById('logout') as HTMLButtonElement;
 const emailInput = document.getElementById('email') as HTMLInputElement;
 const passwordInput = document.getElementById('password') as HTMLInputElement;
-const statusAuth = document.getElementById('status-auth')!;
+const loginEmailBtn = document.getElementById('login-email') as HTMLButtonElement;
+const loginGoogleBtn = document.getElementById('login-google') as HTMLButtonElement;
+const logoutBtn = document.getElementById('logout') as HTMLButtonElement;
+const statusAuth = document.getElementById('status-auth') as HTMLDivElement;
 
-loginGoogleButton?.addEventListener('click', () => {
-  statusAuth.textContent = 'Abrindo pop-up do Google...';
-  statusAuth.style.color = 'gray';
-  
-  // Envia mensagem para o background.ts para lidar com o pop-up
-  chrome.runtime.sendMessage({ type: "LOGIN_WITH_GOOGLE" }, (response) => {
-    if (response.success) {
-      updateLoginStatus(response.user);
-      // Salva o modo 'login'
-      chrome.storage.sync.set({ authMode: 'login' });
-    } else {
-      statusAuth.textContent = `Erro: ${response.error}`;
-      statusAuth.style.color = 'red';
-    }
-  });
-});
-
-loginEmailButton?.addEventListener('click', () => {
-  const email = emailInput.value;
-  const password = passwordInput.value;
-  if (!email || !password) {
-    statusAuth.textContent = 'Preencha email e senha.';
-    statusAuth.style.color = 'red';
-    return;
-  }
-  
-  statusAuth.textContent = 'Autenticando...';
-  statusAuth.style.color = 'gray';
-
-  // Envia mensagem para o background.ts
-  chrome.runtime.sendMessage({ type: "LOGIN_WITH_EMAIL", email, password }, (response) => {
-    if (response.success) {
-      updateLoginStatus(response.user);
-      // Salva o modo 'login'
-      chrome.storage.sync.set({ authMode: 'login' });
-    } else {
-      statusAuth.textContent = `Erro: ${response.error}`;
-      statusAuth.style.color = 'red';
-    }
-  });
-});
-
-logoutButton?.addEventListener('click', () => {
-  // Envia mensagem para o background.ts
-  chrome.runtime.sendMessage({ type: "LOGOUT" }, (response) => {
-    if (response.success) {
-      updateLoginStatus(null);
-    } else {
-      statusAuth.textContent = `Erro: ${response.error}`;
-      statusAuth.style.color = 'red';
-    }
-  });
-});
-
-// --- Lógica de UI (Tabs e Estado Inicial) ---
-
-function toggleMode(mode: string) {
+// Função para alternar a visualização
+function toggleSection(mode: string) {
   if (mode === 'token') {
-    tokenSection.style.display = 'block';
-    loginSection.style.display = 'none';
+    tokenSection.classList.remove('hidden');
+    loginSection.classList.add('hidden');
   } else {
-    tokenSection.style.display = 'none';
-    loginSection.style.display = 'block';
+    tokenSection.classList.add('hidden');
+    loginSection.classList.remove('hidden');
   }
 }
 
-modeSelector?.addEventListener('change', (e) => {
-  const newMode = (e.target as HTMLSelectElement).value;
-  toggleMode(newMode);
-  // Salva a seleção do modo
-  chrome.storage.sync.set({ authMode: newMode });
+// 1. Listener de troca de modo
+if (authModeSelect) {
+  authModeSelect.addEventListener('change', (e) => {
+    toggleSection((e.target as HTMLSelectElement).value);
+  });
+}
+
+// 2. Carregar dados salvos ao abrir
+document.addEventListener('DOMContentLoaded', () => {
+  chrome.storage.sync.get(['nexusTeamId', 'nexusMemberId', 'authMode'], (items) => {
+    if (items.nexusTeamId && teamIdInput) teamIdInput.value = items.nexusTeamId;
+    if (items.nexusMemberId && memberIdInput) memberIdInput.value = items.nexusMemberId;
+    
+    // Restaura a seleção anterior ou padrão para token
+    if (items.authMode && (items.authMode === 'login' || items.authMode === 'token')) {
+      if (authModeSelect) authModeSelect.value = items.authMode;
+      toggleSection(items.authMode);
+    } else {
+      toggleSection('token');
+    }
+  });
 });
 
-function restoreOptions() {
-  // Restaura os campos do modo token
-  chrome.storage.sync.get(
-    { authMode: 'token', teamId: '', memberId: '' },
-    (items) => {
-      teamIdInput.value = items.teamId;
-      memberIdInput.value = items.memberId;
-      modeSelector.value = items.authMode;
-      toggleMode(items.authMode);
-    }
-  );
+// 3. Salvar Token (CORRIGIDO O ERRO DE CONEXÃO)
+if (saveTokenBtn) {
+  saveTokenBtn.addEventListener('click', async () => {
+    const teamId = teamIdInput.value.trim();
+    const memberId = memberIdInput.value.trim();
   
-  // Pede ao background o status de login atual
-  chrome.runtime.sendMessage({ type: "GET_AUTH_STATE" }, (response) => {
-    if (response.user) {
-      updateLoginStatus(response.user);
-    } else {
-      updateLoginStatus(null);
+    if (!teamId || !memberId) {
+      statusToken.textContent = 'Preencha todos os campos.';
+      statusToken.style.color = 'red';
+      return;
+    }
+  
+    saveTokenBtn.textContent = 'Salvando...';
+    saveTokenBtn.disabled = true;
+    
+    try {
+      // Salva no storage do Chrome (Isso é o que importa!)
+      await chrome.storage.sync.set({
+        nexusTeamId: teamId,
+        nexusMemberId: memberId,
+        authMode: 'token'
+      });
+  
+      statusToken.textContent = 'Salvo com sucesso!';
+      statusToken.style.color = 'green';
+      
+      // Tenta avisar o background, mas se falhar, não tem problema
+      // O catch aqui previne o erro vermelho na tela do usuário
+      chrome.runtime.sendMessage({ type: 'CONFIG_UPDATED' }).catch(() => {
+        console.log("Background inativo no momento, mas a configuração foi salva no disco.");
+      });
+  
+    } catch (error) {
+      console.error(error);
+      statusToken.textContent = 'Erro ao salvar.';
+      statusToken.style.color = 'red';
+    } finally {
+      saveTokenBtn.textContent = 'Salvar Token';
+      saveTokenBtn.disabled = false;
+      setTimeout(() => {
+        if (statusToken.style.color === 'green') statusToken.textContent = '';
+      }, 3000);
     }
   });
 }
 
-function updateLoginStatus(user: any) { // 'any' porque não podemos importar o tipo User
-   if (user) {
-      statusAuth.textContent = `Logado como: ${user.email}`;
-      statusAuth.style.color = 'green';
-   } else {
-      statusAuth.textContent = 'Você não está logado.';
-      statusAuth.style.color = 'gray';
-   }
+// 4. Login Email
+if (loginEmailBtn) {
+  loginEmailBtn.addEventListener('click', async () => {
+    try {
+      loginEmailBtn.textContent = '...';
+      await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+    } catch (error: any) {
+      statusAuth.textContent = "Erro: " + error.code;
+      statusAuth.style.color = 'red';
+      loginEmailBtn.textContent = 'Entrar com Email';
+    }
+  });
 }
 
-document.addEventListener('DOMContentLoaded', restoreOptions);
+// 5. Login Google
+if (loginGoogleBtn) {
+  loginGoogleBtn.addEventListener('click', async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error(error);
+      statusAuth.textContent = "Erro Google. Tente fechar e abrir.";
+      statusAuth.style.color = 'red';
+    }
+  });
+}
 
-// Ouve por mudanças de auth (ex: se o usuário deslogar)
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.type === 'AUTH_STATE_CHANGED') {
-    updateLoginStatus(request.user);
+// Logout
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => signOut(auth));
+}
+
+// Monitorar Auth para atualizar UI
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    if (statusAuth) {
+      statusAuth.textContent = `Logado: ${user.email}`;
+      statusAuth.style.color = 'green';
+    }
+    loginEmailBtn?.classList.add('hidden');
+    loginGoogleBtn?.classList.add('hidden');
+    emailInput?.classList.add('hidden');
+    passwordInput?.classList.add('hidden');
+    logoutBtn?.classList.remove('hidden');
+    
+    chrome.storage.sync.set({ authMode: 'login' });
+  } else {
+    if (statusAuth) statusAuth.textContent = '';
+    loginEmailBtn?.classList.remove('hidden');
+    loginGoogleBtn?.classList.remove('hidden');
+    emailInput?.classList.remove('hidden');
+    passwordInput?.classList.remove('hidden');
+    logoutBtn?.classList.add('hidden');
   }
 });

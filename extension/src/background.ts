@@ -1,7 +1,15 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  User, 
+  initializeAuth, 
+  indexedDBLocalPersistence 
+} from 'firebase/auth';
 
-// ESTA É A CONFIGURAÇÃO DO FIREBASE DO *FRONTEND* (DASHBOARD)
+console.log("NexusCore: Service Worker Iniciando...");
+
+// Configuração do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDznqrm2kJfKQXxWpgHWwk-msXH89OEgTo",
   authDomain: "banco-vc.firebaseapp.com",
@@ -12,289 +20,155 @@ const firebaseConfig = {
   measurementId: "G-4E7K9TY3B7"
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app); // NÃO EXPORTE
-const googleProvider = new GoogleAuthProvider(); // NÃO EXPORTE
-
-console.log("NexusCore Background Service Started.");
-
-// ENDPOINTS DO SEU SERVIDOR BACKEND
-const API_TOKEN_LOG_ENDPOINT = "http://localhost:3000/api/ext/log"; // Modo 1/3
-const API_AUTH_LOG_ENDPOINT = "http://localhost:3000/api/ext/log_auth"; // Modo 2
-
-// Estado de rastreamento de atividade
-interface ActiveTabInfo {
-  id: number;
-  url: string;
-  startTime: number; // Timestamp (Date.now())
-}
-
-let activeTab: ActiveTabInfo | null = null;
-let systemState: "active" | "idle" | "locked" = "active";
-
-// --- Configuração e Tipos ---
-interface ExtensionConfig {
-  authMode?: 'token' | 'login';
-  teamId?: string;
-  memberId?: string;
-}
-
-interface LogPayload {
-  teamId?: string;
-  memberId?: string;
-  url: string;
-  timestamp: string;
-  duration: number; // Duração em segundos
-}
-
-let currentUser: User | null = null;
+// Variáveis globais
+let app;
+let auth: any;
+let activeTab: { id: number; url: string; startTime: number } | null = null;
 let currentAuthToken: string | null = null;
 
-// Observador de estado de autenticação
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUser = user;
-    currentAuthToken = await user.getIdToken();
-    console.log("NexusCore: Membro logado na extensão:", user.email);
-    chrome.storage.sync.set({ authMode: 'login' }); 
-  } else {
-    currentUser = null;
-    currentAuthToken = null;
-    console.log("NexusCore: Nenhum membro logado na extensão.");
-    if (activeTab) {
-      await endActiveTabSession();
-    }
-  }
+// --- 1. Inicialização do Firebase (Compatível com Service Worker) ---
+try {
+  app = initializeApp(firebaseConfig);
   
-  // **NOVO**: Notifica a página de opções sobre a mudança
-  chrome.runtime.sendMessage({ type: 'AUTH_STATE_CHANGED', user: currentUser });
+  // CORREÇÃO CRÍTICA: Service Workers não têm localStorage.
+  // Usamos initializeAuth com persistência via IndexedDB.
+  auth = initializeAuth(app, {
+    persistence: indexedDBLocalPersistence
+  });
+  
+  console.log("NexusCore: Auth inicializado com persistência IndexedDB.");
+} catch (e: any) {
+  // Se já foi inicializado (hot reload), tentamos pegar a instância existente
+  if (e.code === 'app/duplicate-app') {
+    console.log("NexusCore: App já inicializado, recuperando instância.");
+    // Importação dinâmica para evitar erro de referência circular na inicialização
+    import('firebase/app').then(module => {
+      app = module.getApp();
+      auth = getAuth(app);
+    });
+  } else {
+    console.error("NexusCore: Erro fatal na inicialização:", e);
+  }
+}
+
+// --- 2. Monitoramento de Usuário ---
+if (auth) {
+  onAuthStateChanged(auth, async (user: User | null) => {
+    if (user) {
+      console.log(`NexusCore: Usuário conectado (${user.email})`);
+      try {
+        currentAuthToken = await user.getIdToken();
+        // Salva status no storage local para a UI saber
+        chrome.storage.sync.set({ authMode: 'login' });
+      } catch (error) {
+        console.error("NexusCore: Erro ao obter token do usuário", error);
+      }
+    } else {
+      console.log("NexusCore: Usuário desconectado.");
+      currentAuthToken = null;
+    }
+  });
+}
+
+// --- 3. Comunicação (Mensagens) ---
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.type === 'CONFIG_UPDATED') {
+    console.log("NexusCore: Configuração atualizada manualmente.");
+    // Resetar estado se necessário
+    sendResponse({ received: true });
+  }
+  return true; // Manter canal aberto
 });
 
-// Atualiza o token de autenticação periodicamente
-setInterval(async () => {
-  if (currentUser) {
-    try {
-      currentAuthToken = await currentUser.getIdToken(true); // Força a atualização
-    } catch (error) {
-      console.error("NexusCore: Falha ao atualizar token de auth.", error);
-      await auth.signOut();
-    }
-  }
-}, 10 * 60 * 1000); // A cada 10 minutos
+// --- 4. Sistema de Logs ---
+const API_TOKEN_LOG_ENDPOINT = "http://localhost:3000/api/ext/log";
+const API_AUTH_LOG_ENDPOINT = "http://localhost:3000/api/ext/log_auth";
 
-async function getConfig(): Promise<ExtensionConfig> {
+async function sendLog(payload: any) {
   try {
-    const config = await chrome.storage.sync.get(['authMode', 'teamId', 'memberId']);
-    return config as ExtensionConfig;
-  } catch (error) {
-    console.error("NexusCore: Erro ao ler config:", error);
-    return {};
-  }
-}
-
-// --- Funções de Envio de Log (Modo 1 e 2) ---
-
-async function sendLog(payload: LogPayload) {
-  const config = await getConfig();
-
-  if (config.authMode === 'login') {
-    if (!currentAuthToken) {
-      console.warn("NexusCore: Modo Login, mas sem usuário. Log descartado.");
-      return;
-    }
-    await sendAuthenticatedLog(payload, currentAuthToken);
-  } else if (config.authMode === 'token') {
-    if (!config.teamId || !config.memberId) {
-      console.warn("NexusCore: Modo Token, mas não configurado. Log descartado.");
-      return;
-    }
-    payload.teamId = config.teamId;
-    payload.memberId = config.memberId;
-    await sendTokenLog(payload);
-  } else {
-    console.warn("NexusCore: Modo de autenticação não definido. Configure na página de opções.");
-  }
-}
-
-async function sendTokenLog(payload: LogPayload) {
-  console.log("NexusCore: Enviando log (Modo Token):", payload);
-  try {
-    const response = await fetch(API_TOKEN_LOG_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("NexusCore: Falha (Token):", response.status, errorData.error);
+    const config = await chrome.storage.sync.get(['authMode', 'nexusTeamId', 'nexusMemberId']);
+    
+    // Cenário 1: Login via Conta (Google/Email)
+    if (config.authMode === 'login' && currentAuthToken) {
+      await fetch(API_AUTH_LOG_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentAuthToken}`
+        },
+        body: JSON.stringify(payload),
+      });
+    } 
+    // Cenário 2: Token Manual (Equipe + Membro)
+    else if (config.nexusTeamId && config.nexusMemberId) {
+      const logData = {
+        ...payload,
+        teamId: config.nexusTeamId,
+        memberId: config.nexusMemberId
+      };
+      
+      await fetch(API_TOKEN_LOG_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData),
+      });
     }
   } catch (error) {
-    console.error("NexusCore: Erro de rede (Token):", error);
+    // Falhas de rede são esperadas se o server cair, não spamar erro
+    // console.debug("Falha no envio do log", error);
   }
 }
 
-async function sendAuthenticatedLog(payload: LogPayload, token: string) {
-  console.log("NexusCore: Enviando log (Modo Auth):", payload);
-  try {
-    const response = await fetch(API_AUTH_LOG_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("NexusCore: Falha (Auth):", response.status, errorData.error);
-    }
-  } catch (error) {
-    console.error("NexusCore: Erro de rede (Auth):", error);
-  }
-}
-
-// --- Lógica de Rastreamento de Tempo ---
-
+// --- 5. Rastreamento de Abas ---
 async function endActiveTabSession() {
-  if (!activeTab || systemState !== "active") {
-    activeTab = null;
-    return;
-  }
-
-  const endTime = Date.now();
-  const durationInSeconds = Math.round((endTime - activeTab.startTime) / 1000);
+  if (!activeTab) return;
   
-  if (durationInSeconds > 3) {
-    const payload: LogPayload = {
+  const endTime = Date.now();
+  const duration = Math.round((endTime - activeTab.startTime) / 1000);
+  
+  // Filtra logs muito curtos (< 2s) ou URLs irrelevantes
+  if (duration > 2 && activeTab.url && !activeTab.url.startsWith('chrome://')) {
+    // Enviar log sem bloquear a thread principal
+    sendLog({
       url: activeTab.url,
       timestamp: new Date(activeTab.startTime).toISOString(),
-      duration: durationInSeconds,
-    };
-    await sendLog(payload);
+      duration: duration,
+    }).catch(err => console.debug("Erro background log:", err));
   }
-
   activeTab = null;
 }
 
 function startActiveTabSession(tabId: number, url: string) {
-  if (activeTab && activeTab.id !== tabId) {
-    endActiveTabSession();
-  }
+  // Finaliza anterior antes de começar nova
+  if (activeTab) endActiveTabSession();
   
-  if (isValidUrl(url)) {
-    activeTab = {
-      id: tabId,
-      url: url,
-      startTime: Date.now(),
-    };
+  // Ignora páginas internas do navegador
+  if (url && !url.startsWith('chrome://') && !url.startsWith('about:') && !url.startsWith('edge://')) {
+    activeTab = { id: tabId, url, startTime: Date.now() };
   }
 }
 
-function isValidUrl(url: string | undefined): url is string {
-  if (!url) return false;
-  if (url.startsWith("chrome://") || url.startsWith("about:")) {
-    return false;
-  }
-  return url.startsWith("http://") || url.startsWith("https://");
-}
-
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+// Listeners de Eventos de Navegação
+chrome.tabs.onActivated.addListener(async (info) => {
   await endActiveTabSession();
   try {
-    const tab = await chrome.tabs.get(activeInfo.tabId);
-    if (tab.url && tab.active) {
-      startActiveTabSession(activeInfo.tabId, tab.url);
-    }
-  } catch (error) {
-    activeTab = null;
+    const tab = await chrome.tabs.get(info.tabId);
+    if (tab?.url) startActiveTabSession(info.tabId, tab.url);
+  } catch (e) { /* Tab fechada ou inacessível */ }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.status === 'complete' && tab.active && tab.url) {
+    startActiveTabSession(tabId, tab.url);
   }
 });
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && tab.active && isValidUrl(tab.url)) {
-    await endActiveTabSession();
-    startActiveTabSession(tabId, tab.url!);
-  }
-});
-
-chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    await endActiveTabSession();
+chrome.idle.onStateChanged.addListener((newState) => {
+  if (newState === 'active') {
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      if (tabs[0]?.url) startActiveTabSession(tabs[0].id!, tabs[0].url);
+    });
   } else {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, windowId: windowId });
-      if (tab && tab.id && tab.url) {
-        startActiveTabSession(tab.id, tab.url);
-      }
-    } catch (error) {
-      // Ignora o erro
-    }
-  }
-});
-
-chrome.tabs.onRemoved.addListener(async (tabId) => {
-  if (activeTab && activeTab.id === tabId) {
-    await endActiveTabSession();
-  }
-});
-
-chrome.idle.setDetectionInterval(60);
-
-chrome.idle.onStateChanged.addListener(async (newState) => {
-  systemState = newState;
-  
-  if (newState === "active") {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.id && tab.url) {
-        startActiveTabSession(tab.id, tab.url);
-      }
-    } catch (error) {
-       // Ignora o erro
-    }
-  } else {
-    await endActiveTabSession();
-  }
-});
-
-// Listener para a página de opções (options.ts)
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === "LOGIN_WITH_GOOGLE") {
-    signInWithPopup(auth, googleProvider)
-      .then((result) => {
-        sendResponse({ success: true, user: result.user });
-      })
-      .catch((error) => {
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Resposta assíncrona
-  }
-  
-  if (request.type === "LOGIN_WITH_EMAIL") {
-    signInWithEmailAndPassword(auth, request.email, request.password)
-      .then((result) => {
-        sendResponse({ success: true, user: result.user });
-      })
-      .catch((error) => {
-        sendResponse({ success: false, error: error.message });
-      });
-    return true; // Resposta assíncrona
-  }
-  
-  if (request.type === "LOGOUT") {
-     auth.signOut()
-      .then(() => {
-         sendResponse({ success: true });
-      })
-      .catch((error) => {
-         sendResponse({ success: false, error: error.message });
-      });
-    return true; // Resposta assíncrona
-  }
-  
-  // **NOVO**: Responde à página de opções com o estado de login atual
-  if (request.type === "GET_AUTH_STATE") {
-    sendResponse({ user: currentUser });
-    return false; // Resposta síncrona
+    endActiveTabSession(); // Usuário ficou inativo, fecha sessão
   }
 });

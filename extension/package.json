@@ -2,19 +2,18 @@
   "name": "@nexuscore/extension",
   "version": "0.1.0",
   "private": true,
+  "type": "module", 
   "scripts": {
     "dev": "vite build --watch --mode development",
-    "build": "vite build"
+    "build": "tsc && vite build"
   },
   "dependencies": {
-    "firebase": "^12.4.0",
-    "webextension-polyfill": "^0.10.0"
+    "firebase": "^10.8.0"
   },
   "devDependencies": {
-    "@types/webextension-polyfill": "^0.10.7",
-    "typescript": "^5.4.5",
-    "vite": "^5.2.11",
-    "vite-plugin-static-copy": "^1.0.6",
-    "vite-plugin-web-extension": "^4.5.0"
+    "@types/chrome": "^0.0.260",
+    "@types/node": "^20.11.17",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.3"
   }
 }
