@@ -5,14 +5,7 @@ import admin from 'firebase-admin';
 
 // Importar rotas baseadas em Firebase
 import authRoutes from './routes/auth'; 
-import extensionRoutes from './routes/extension'; // <-- ADICIONAR ESTA LINHA
-
-// Rotas antigas (baseadas em MySQL, vamos desativá-las)
-// import dashboardRoutes from './routes/dashboard';
-// import logsRoutes from './routes/logs';
-// import studentsRoutes from './routes/students';
-// import classesRoutes from './routes/classes';
-// import analyticsRoutes from './routes/analytics';
+import extensionRoutes from './routes/extension'; 
 
 dotenv.config();
 
@@ -20,12 +13,16 @@ const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
   : undefined;
 
+// Inicialização do Firebase
 if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: `https://banco-vc.firebaseio.com` // Adicionar databaseURL se necessário pelo Admin SDK
-  });
-  console.log('🔥 Firebase Admin inicializado com sucesso');
+  // Verifica se já não há um app inicializado para evitar duplicidade em hot-reload
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: `https://banco-vc.firebaseio.com`
+    });
+    console.log('🔥 Firebase Admin inicializado com sucesso');
+  }
 } else {
   console.warn('⚠️  Firebase Admin não configurado. Configure FIREBASE_SERVICE_ACCOUNT_KEY no .env');
 }
@@ -36,6 +33,7 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Logger simples
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
@@ -43,23 +41,17 @@ app.use((req, res, next) => {
 
 // Rotas
 app.use('/api/auth', authRoutes); // Para login/perfil de Líderes
-app.use('/api/ext', extensionRoutes); // <-- ADICIONAR ESTA LINHA (Para a extensão enviar logs)
-
-/* Desativando rotas legadas do MySQL
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/logs', logsRoutes);
-app.use('/api/students', studentsRoutes);
-app.use('/api/classes', classesRoutes);
-app.use('/api/analytics', analyticsRoutes);
-*/
+app.use('/api/ext', extensionRoutes); // Para a extensão enviar logs
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Middleware de Erro Global (CORRIGIDO AQUI)
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
-  res.status(5Error: 'Erro interno do servidor' });
+  // A linha abaixo estava com erro de digitação (5Error)
+  res.status(500).json({ error: 'Erro interno do servidor' });
 });
 
 app.listen(PORT, () => {
