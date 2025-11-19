@@ -58,14 +58,14 @@ const Index = () => {
                 <LanguageSelector />
                 <ThemeToggle />
                 <Button 
-                  onClick={() => navigate("/perfil")} 
+                  onClick={() => navigate("/profile")} // CORREÇÃO AQUI: Mudado de /perfil para /profile
                   variant="ghost" 
                   className="gap-2"
                 >
                   Perfil
                 </Button>
                 <Button 
-                  onClick={() => navigate("/gerenciamento")} 
+                  onClick={() => navigate("/management")} // Verifica se a rota no App.tsx é /management ou /gerenciamento. No seu App.tsx é /management.
                   variant="outline" 
                   className="gap-2 hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
                 >

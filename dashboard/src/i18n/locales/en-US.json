@@ -25,7 +25,8 @@
     "search": "Search",
     "filter": "Filter",
     "download": "Download",
-    "export": "Export"
+    "export": "Export",
+    "actions": "Actions"
   },
   "login": {
     "title": "Login",
@@ -46,8 +47,9 @@
   "dashboard": {
     "title": "Monitoring Dashboard",
     "subtitle": "Track performance metrics and activities in real time",
-    "totalStudents": "Total Students",
-    "activeClasses": "Active Classes",
+    "totalStudents": "Total Members",
+    "activeClasses": "Active Teams",
+    "totalTeams": "Total Teams",
     "alerts": "Alerts",
     "avgPerformance": "Average Performance",
     "activitySummary": "Activity Summary",
@@ -58,18 +60,25 @@
   },
   "management": {
     "title": "Management",
-    "classes": "Classes",
-    "students": "Students",
-    "professors": "Professors",
-    "createClass": "Create Class",
-    "editClass": "Edit Class",
-    "deleteClass": "Delete Class",
-    "className": "Class Name",
+    "classes": "Teams",
+    "students": "Members",
+    "professors": "Leaders",
+    "createClass": "New Team",
+    "editClass": "Edit Team",
+    "deleteClass": "Delete Team",
+    "className": "Team Name",
+    "owner": "Owner",
+    "teamId": "Team ID (Token)",
+    "members": "Members",
+    "leaders": "Leaders",
     "classDescription": "Description",
-    "manageStudents": "Manage Students",
-    "manageProfessors": "Manage Professors",
-    "confirmDelete": "Are you sure you want to delete this class?",
-    "deleteWarning": "This action cannot be undone."
+    "manageStudents": "Manage Members",
+    "manageProfessors": "Manage Leaders",
+    "confirmDelete": "Are you sure you want to delete this team?",
+    "deleteWarning": "This action cannot be undone.",
+    "searchPlaceholder": "Search teams or departments...",
+    "emptyState": "No teams registered. Click \"+ New Team\" to start.",
+    "emptyFilter": "No teams found with the term"
   },
   "profile": {
     "title": "Profile",

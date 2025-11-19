@@ -25,7 +25,8 @@
     "search": "Buscar",
     "filter": "Filtrar",
     "download": "Descargar",
-    "export": "Exportar"
+    "export": "Exportar",
+    "actions": "Acciones"
   },
   "login": {
     "title": "Iniciar sesión",
@@ -46,8 +47,9 @@
   "dashboard": {
     "title": "Panel de monitoreo",
     "subtitle": "Seguimiento de métricas de rendimiento y actividades en tiempo real",
-    "totalStudents": "Total de estudiantes",
-    "activeClasses": "Clases activas",
+    "totalStudents": "Total de Miembros",
+    "activeClasses": "Equipos Activos",
+    "totalTeams": "Total de Equipos",
     "alerts": "Alertas",
     "avgPerformance": "Rendimiento promedio",
     "activitySummary": "Resumen de actividades",
@@ -58,18 +60,25 @@
   },
   "management": {
     "title": "Gestión",
-    "classes": "Clases",
-    "students": "Estudiantes",
-    "professors": "Profesores",
-    "createClass": "Crear clase",
-    "editClass": "Editar clase",
-    "deleteClass": "Eliminar clase",
-    "className": "Nombre de la clase",
+    "classes": "Equipos",
+    "students": "Miembros",
+    "professors": "Líderes",
+    "createClass": "Nuevo Equipo",
+    "editClass": "Editar Equipo",
+    "deleteClass": "Eliminar Equipo",
+    "className": "Nombre del Equipo",
+    "owner": "Propietario",
+    "teamId": "ID del Equipo (Token)",
+    "members": "Miembros",
+    "leaders": "Líderes",
     "classDescription": "Descripción",
-    "manageStudents": "Gestionar estudiantes",
-    "manageProfessors": "Gestionar profesores",
-    "confirmDelete": "¿Estás seguro de que quieres eliminar esta clase?",
-    "deleteWarning": "Esta acción no se puede deshacer."
+    "manageStudents": "Gestionar Miembros",
+    "manageProfessors": "Gestionar Líderes",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este equipo?",
+    "deleteWarning": "Esta acción no se puede deshacer.",
+    "searchPlaceholder": "Buscar equipos o departamentos...",
+    "emptyState": "No hay equipos registrados. Haga clic en \"+ Nuevo Equipo\" para comenzar.",
+    "emptyFilter": "No se encontraron equipos con el término"
   },
   "profile": {
     "title": "Perfil",

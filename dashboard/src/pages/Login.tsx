@@ -11,30 +11,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageSelector } from "@/components/LanguageSelector";
-import { CompleteProfileDialog } from "@/components/CompleteProfileDialog";
-import { auth } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { isAuthenticated, isLoading: authLoading, refreshUser } = useAuth();
+  // Pegamos o refreshUser do contexto
+  const { user, isLeader, loading: authLoading, refreshUser } = useAuth();
   const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
-  const [incompleteProfileData, setIncompleteProfileData] = useState<{
-    userId: string;
-    email: string;
-    fullName: string;
-  } | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      navigate("/dashboard", { replace: true });
+    if (!authLoading && user) {
+      if (isLeader) {
+        navigate("/dashboard", { replace: true });
+      } else {
+        setIsLoading(false);
+      }
     }
-  }, [isAuthenticated, authLoading, navigate]);
+  }, [user, isLeader, authLoading, navigate]);
   
   const [loginData, setLoginData] = useState({
     email: "",
@@ -61,7 +56,6 @@ const Login = () => {
         title: t('login.loginSuccess'),
         description: t('login.loginSuccessDescription'),
       });
-      // Don't navigate here - useEffect will handle it after auth state updates
     } catch (error: any) {
       toast({
         title: t('login.loginError'),
@@ -87,6 +81,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // 1. Cria a conta e salva no banco
       await authService.register({
         fullName: registerData.fullName,
         username: registerData.username,
@@ -98,10 +93,15 @@ const Login = () => {
       
       toast({
         title: t('login.accountCreated'),
-        description: 'Verifique seu email para confirmar o cadastro antes de fazer login.',
+        description: 'Conta criada com sucesso!',
       });
-      setIsLogin(true); // Volta para tela de login
-      setIsLoading(false);
+
+      // 2. CORREÇÃO IMPORTANTE: Força o contexto a verificar o perfil imediatamente
+      // Isso garante que o AuthContext veja o "isProfileComplete: true" que acabamos de salvar
+      if (refreshUser) {
+        await refreshUser();
+      }
+
     } catch (error: any) {
       toast({
         title: t('login.createAccountError'),
@@ -116,29 +116,12 @@ const Login = () => {
     setIsLoading(true);
     try {
       await authService.loginWithGoogle();
-      
-      // Verificar se o perfil está completo
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        const docRef = doc(db, "leaders", currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (!docSnap.exists() || !docSnap.data().cpf || !docSnap.data().birthDate) {
-          // Perfil incompleto, mostrar dialog
-          setIncompleteProfileData({
-            userId: currentUser.uid,
-            email: currentUser.email || '',
-            fullName: currentUser.displayName || ''
-          });
-          setShowCompleteProfile(true);
-          setIsLoading(false);
-        } else {
-          toast({
-            title: t('login.loginSuccess'),
-            description: t('login.loginSuccessDescription'),
-          });
-        }
-      }
+      toast({
+        title: "Google Login",
+        description: "Autenticação realizada com sucesso.",
+      });
+      // No Google Login, se for novo, ele cria com isProfileComplete: false, 
+      // então o modal vai abrir corretamente pelo AuthContext.
     } catch (error: any) {
       toast({
         title: t('login.loginError'),
@@ -147,16 +130,6 @@ const Login = () => {
       });
       setIsLoading(false);
     }
-  };
-
-  const handleProfileComplete = async () => {
-    setShowCompleteProfile(false);
-    setIncompleteProfileData(null);
-    await refreshUser();
-    toast({
-      title: t('login.loginSuccess'),
-      description: t('login.loginSuccessDescription'),
-    });
   };
 
   return (
@@ -189,7 +162,7 @@ const Login = () => {
                 className="w-20 h-20 rounded-xl shadow-lg"
               />
             </div>
-            <div className="w-20" /> {/* Spacer for balance */}
+            <div className="w-20" />
           </div>
           <CardTitle className="text-2xl">
             {isLogin ? t('login.title') : t('login.createAccountTitle')}
@@ -381,16 +354,6 @@ const Login = () => {
           </div>
         </CardContent>
       </Card>
-
-      {incompleteProfileData && (
-        <CompleteProfileDialog
-          open={showCompleteProfile}
-          userId={incompleteProfileData.userId}
-          email={incompleteProfileData.email}
-          fullName={incompleteProfileData.fullName}
-          onComplete={handleProfileComplete}
-        />
-      )}
     </div>
   );
 };

@@ -4,6 +4,9 @@ import ptBR from './locales/pt-BR.json';
 import enUS from './locales/en-US.json';
 import esES from './locales/es-ES.json';
 
+// Tenta recuperar o idioma salvo, ou usa pt-BR como padrão
+const savedLanguage = localStorage.getItem('language') || 'pt-BR';
+
 i18n
   .use(initReactI18next)
   .init({
@@ -12,7 +15,7 @@ i18n
       'en-US': { translation: enUS },
       'es-ES': { translation: esES },
     },
-    lng: 'pt-BR',
+    lng: savedLanguage, // <--- Aqui estava fixo em 'pt-BR'
     fallbackLng: 'pt-BR',
     interpolation: {
       escapeValue: false,

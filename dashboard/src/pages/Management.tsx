@@ -1,5 +1,4 @@
 import {
-  Shield,
   Users,
   Plus,
   Trash2,
@@ -12,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, Class } from "@/services/api";
@@ -38,9 +37,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
 
 const Management = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [membersDialogOpen, setMembersDialogOpen] = useState(false);
@@ -50,7 +51,6 @@ const Management = () => {
   const [classToDelete, setClassToDelete] = useState<Class | null>(null);
   const queryClient = useQueryClient();
 
-  // A query permanece a mesma
   const { data: classes = [], isLoading, isFetching } = useQuery({
     queryKey: ["classes"],
     queryFn: api.getClasses,
@@ -60,19 +60,19 @@ const Management = () => {
     mutationFn: (classId: string) => api.deleteClass(classId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classes"] });
-      toast.success("Equipe excluída com sucesso!");
+      toast.success(t("common.success"));
       setDeleteDialogOpen(false);
       setClassToDelete(null);
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao excluir equipe: ${error.message}`);
+      toast.error(`${t("common.error")}: ${error.message}`);
     },
   });
 
   const handleCopyId = (id: string | undefined) => {
     if (!id) return;
     navigator.clipboard.writeText(id);
-    toast.success("ID da Equipe copiado!");
+    toast.success(t("common.success"));
   };
 
   const filteredTeams = classes.filter((team) =>
@@ -100,18 +100,20 @@ const Management = () => {
     }
   };
 
-  // REMOVEMOS A FUNÇÃO 'renderTableStatus()'
+  // Função auxiliar para navegação
+  const goToDetails = (teamId: string) => {
+    navigate(`/team/${teamId}`);
+  };
 
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="border-b border-border bg-background/95 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Button
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/dashboard")}
                   variant="ghost"
                   size="icon"
                   className="hover:bg-primary/10 hover:text-primary transition-all duration-300"
@@ -122,13 +124,14 @@ const Management = () => {
                   src="/LOGO.png"
                   alt="NexusCore Security Logo"
                   className="w-10 h-10 rounded-lg shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer"
+                  onClick={() => navigate("/dashboard")}
                 />
                 <div>
-                  <h1 className="text-xl font-arvo font-bold hover:text-primary transition-colors">
+                  <h1 className="text-xl font-bold hover:text-primary transition-colors">
                     NexusCore Security
                   </h1>
                   <p className="text-xs text-muted-foreground -mt-1">
-                    Gerenciamento
+                    {t("management.title")}
                   </p>
                 </div>
               </div>
@@ -140,30 +143,23 @@ const Management = () => {
                   variant="outline"
                   className="hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
                 >
-                  Dashboard
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="hover:scale-105 transition-transform duration-300"
-                >
-                  SAIR
+                  {t("common.dashboard")}
                 </Button>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="container mx-auto px-6 py-8">
-          {/* ... (Cards de Stats - sem mudança) ... */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-fade-in">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 animate-fade-in">
+            {/* Cards de estatísticas (mantidos iguais) */}
             <Card className="border-border hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 transition-all duration-300 group">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-secondary group-hover:scale-110 transition-transform duration-300">
                     <Users className="w-5 h-5 text-white" />
                   </div>
-                  Total de Equipes
+                  {t("dashboard.totalTeams")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -178,7 +174,7 @@ const Management = () => {
                   <div className="p-2 rounded-lg bg-gradient-to-br from-success to-primary group-hover:scale-110 transition-transform duration-300">
                     <Users className="w-5 h-5 text-white" />
                   </div>
-                  Equipes Ativas
+                  {t("dashboard.activeClasses")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -193,7 +189,7 @@ const Management = () => {
                   <div className="p-2 rounded-lg bg-gradient-to-br from-accent to-secondary group-hover:scale-110 transition-transform duration-300">
                     <Users className="w-5 h-5 text-white" />
                   </div>
-                  Total de Membros
+                  {t("dashboard.totalStudents")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -209,11 +205,10 @@ const Management = () => {
             </Card>
           </div>
 
-          {/* ... (Controles de Busca e Botão - sem mudança) ... */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1">
               <Input
-                placeholder="Buscar equipes ou departamentos..."
+                placeholder={t("management.searchPlaceholder")}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-card border-border hover:border-primary focus:border-primary transition-all duration-300"
@@ -225,15 +220,14 @@ const Management = () => {
               className="gap-2 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 hover:scale-105 transition-all duration-300"
             >
               <Plus className="w-4 h-4" />
-              Nova Equipe
+              {t("management.createClass")}
             </Button>
           </div>
 
-          {/* Teams Table */}
           <Card className="border-border hover:shadow-lg transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex justify-between items-center">
-                Equipes Cadastradas
+                {t("management.classes")} 
                 {isFetching && !isLoading && (
                   <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                 )}
@@ -244,81 +238,76 @@ const Management = () => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-3 px-4 font-arvo font-semibold">
-                        Nome da Equipe
+                      <th className="text-left py-3 px-4 font-semibold">
+                        {t("management.className")}
                       </th>
-                      <th className="text-left py-3 px-4 font-arvo font-semibold">
-                        Proprietário
+                      <th className="text-left py-3 px-4 font-semibold">
+                        {t("management.owner")}
                       </th>
-                      <th className="text-left py-3 px-4 font-arvo font-semibold">
-                        ID da Equipe (Token)
+                      <th className="text-left py-3 px-4 font-semibold">
+                        {t("management.teamId")}
                       </th>
-                      <th className="text-left py-3 px-4 font-arvo font-semibold">
-                        Membros
+                      <th className="text-left py-3 px-4 font-semibold">
+                        {t("management.members")}
                       </th>
-                      <th className="text-left py-3 px-4 font-arvo font-semibold">
-                        Líderes
+                      <th className="text-left py-3 px-4 font-semibold">
+                        {t("management.leaders")}
                       </th>
                       <th className="text-right py-3 px-4 font-semibold">
-                        Ações
+                        {t("common.actions")}
                       </th>
                     </tr>
                   </thead>
                   
-                  {/* ====================================================== */}
-                  {/* AQUI ESTÁ A LÓGICA DE RENDERIZAÇÃO CORRIGIDA */}
-                  {/* ====================================================== */}
                   <tbody>
                     {isLoading ? (
-                      // 1. Estado de Carregamento Inicial
                       <tr>
                         <td
                           colSpan={6}
                           className="py-8 text-center text-muted-foreground"
                         >
                           <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
-                          Carregando equipes...
+                          {t("common.loading")}
                         </td>
                       </tr>
                     ) : classes.length === 0 ? (
-                      // 2. Estado Vazio (Nenhuma equipe encontrada)
                       <tr>
                         <td
                           colSpan={6}
                           className="py-8 text-center text-muted-foreground"
                         >
-                          Nenhuma equipe cadastrada. Clique em "+ Nova Equipe"
-                          para começar.
+                          {t("management.emptyState")}
                         </td>
                       </tr>
                     ) : filteredTeams.length === 0 ? (
-                      // 3. Estado de Filtro Vazio (Busca não encontrou nada)
                       <tr>
                         <td
                           colSpan={6}
                           className="py-8 text-center text-muted-foreground"
                         >
-                          Nenhuma equipe encontrada com o termo "{searchTerm}".
+                           {t("management.emptyFilter")} "{searchTerm}".
                         </td>
                       </tr>
                     ) : (
-                      // 4. Estado de Sucesso (Renderiza as equipes)
                       filteredTeams.map((team) => (
                         <tr
                           key={team.id}
                           className="border-b border-border hover:bg-muted/30 transition-colors duration-200"
                         >
-                          <td className="py-4 px-4 font-medium">
-                            <Link
-                              to={`/team/${team.id}`}
-                              className="font-medium hover:underline underline-offset-4 text-primary"
-                            >
-                              {team.name}
-                            </Link>
+                          {/* NOME DA EQUIPE CLICÁVEL */}
+                          <td 
+                            className="py-4 px-4 font-medium cursor-pointer text-primary hover:underline underline-offset-4"
+                            onClick={() => goToDetails(team.id!)}
+                          >
+                            {team.name}
                           </td>
+                          
+                          {/* PROPRIETÁRIO (Não clicável) */}
                           <td className="py-4 px-4 text-muted-foreground">
                             {team.owner_name || "-"}
                           </td>
+                          
+                          {/* ID DA EQUIPE */}
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-2">
                               <span
@@ -339,29 +328,37 @@ const Management = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Copiar ID da Equipe</p>
+                                  <p>Copiar ID</p>
                                 </TooltipContent>
                               </Tooltip>
                             </div>
                           </td>
-                          <td className="py-4 px-4">
-                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 text-primary text-sm hover:from-primary/20 hover:to-secondary/20 transition-all duration-300">
+                          
+                          {/* MEMBROS CLICÁVEL */}
+                          <td 
+                            className="py-4 px-4 cursor-pointer group"
+                            onClick={() => goToDetails(team.id!)}
+                          >
+                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 text-primary text-sm group-hover:from-primary/20 group-hover:to-secondary/20 transition-all duration-300">
                               {team.student_count != null
-                                ? `${team.student_count} membro${
-                                    team.student_count !== 1 ? "s" : ""
-                                  }`
+                                ? team.student_count
                                 : "-"}
                             </span>
                           </td>
-                          <td className="py-4 px-4">
-                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-accent/10 to-primary/10 text-accent text-sm hover:from-accent/20 hover:to-primary/20 transition-all duration-300">
+                          
+                          {/* LÍDERES CLICÁVEL */}
+                          <td 
+                            className="py-4 px-4 cursor-pointer group"
+                            onClick={() => goToDetails(team.id!)}
+                          >
+                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-accent/10 to-primary/10 text-accent text-sm group-hover:from-accent/20 group-hover:to-primary/20 transition-all duration-300">
                               {team.professor_count != null
-                                ? `${team.professor_count} líder${
-                                    team.professor_count !== 1 ? "es" : ""
-                                  }`
+                                ? team.professor_count
                                 : "-"}
                             </span>
                           </td>
+                          
+                          {/* AÇÕES */}
                           <td className="py-4 px-4">
                             <div className="flex gap-2 justify-end">
                               <Tooltip>
@@ -376,7 +373,7 @@ const Management = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Gerenciar Membros</p>
+                                  <p>{t("management.manageStudents")}</p>
                                 </TooltipContent>
                               </Tooltip>
                               <Tooltip>
@@ -391,7 +388,7 @@ const Management = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Gerenciar Líderes</p>
+                                  <p>{t("management.manageProfessors")}</p>
                                 </TooltipContent>
                               </Tooltip>
                               <Tooltip>
@@ -415,7 +412,7 @@ const Management = () => {
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Excluir Equipe</p>
+                                  <p>{t("management.deleteClass")}</p>
                                 </TooltipContent>
                               </Tooltip>
                             </div>
@@ -430,7 +427,6 @@ const Management = () => {
           </Card>
         </main>
 
-        {/* ... (Footer e Dialogs - sem mudança) ... */}
         <footer className="border-t border-border bg-card/30 backdrop-blur-sm mt-12">
           <div className="container mx-auto px-6 py-6 text-center text-sm text-muted-foreground">
             <div className="flex items-center justify-center gap-2">
@@ -440,60 +436,28 @@ const Management = () => {
                 className="w-6 h-6 rounded shadow-md"
               />
               <span>
-                © 2025 NexusCore Security - Sistema de Monitoramento de Acesso.
-                Todos os direitos reservados.
+                © 2025 NexusCore Security - {t("common.companyName")}.
               </span>
             </div>
           </div>
         </footer>
 
-        <CreateTeamDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-        />
-        <ManageMembersDialog
-          open={membersDialogOpen}
-          onOpenChange={setMembersDialogOpen}
-          classData={selectedClass}
-        />
-        <ManageLeadersDialog
-          open={leadersDialogOpen}
-          onOpenChange={setLeadersDialogOpen}
-          classData={selectedClass}
-        />
+        <CreateTeamDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+        <ManageMembersDialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen} classData={selectedClass} />
+        <ManageLeadersDialog open={leadersDialogOpen} onOpenChange={setLeadersDialogOpen} classData={selectedClass} />
 
-        <AlertDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-        >
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle className="font-arvo">
-                Excluir Equipe
-              </AlertDialogTitle>
+              <AlertDialogTitle>{t("management.deleteClass")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir a equipe{" "}
-                <strong>{classToDelete?.name}</strong>? Esta ação não pode ser
-                desfeita.
+                {t("management.confirmDelete")} <strong>{classToDelete?.name}</strong>? {t("management.deleteWarning")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMutation.isPending}>
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmDelete}
-                className="bg-destructive hover:bg-destructive/90"
-                disabled={deleteMutation.isPending}
-              >
-                {deleteMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Excluindo...
-                  </>
-                ) : (
-                  "Excluir"
-                )}
+              <AlertDialogCancel disabled={deleteMutation.isPending}>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90" disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : t("common.delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

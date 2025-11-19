@@ -25,7 +25,8 @@
     "search": "Buscar",
     "filter": "Filtrar",
     "download": "Baixar",
-    "export": "Exportar"
+    "export": "Exportar",
+    "actions": "Ações"
   },
   "login": {
     "title": "Login",
@@ -41,13 +42,14 @@
     "accountCreatedDescription": "Sua conta foi criada com sucesso.",
     "loginError": "Erro ao fazer login",
     "createAccountError": "Erro ao criar conta",
-    "passwordMismatch": "As senhas não coincidem"
+    "passwordMismatch": "As senhas não coinciden"
   },
   "dashboard": {
     "title": "Dashboard de Monitoramento",
     "subtitle": "Acompanhe métricas de desempenho e atividades em tempo real",
-    "totalStudents": "Total de Alunos",
-    "activeClasses": "Turmas Ativas",
+    "totalStudents": "Total de Membros",
+    "activeClasses": "Equipes Ativas",
+    "totalTeams": "Total de Equipes",
     "alerts": "Alertas",
     "avgPerformance": "Desempenho Médio",
     "activitySummary": "Resumo de Atividades",
@@ -58,18 +60,25 @@
   },
   "management": {
     "title": "Gerenciamento",
-    "classes": "Turmas",
-    "students": "Alunos",
-    "professors": "Professores",
-    "createClass": "Criar Turma",
-    "editClass": "Editar Turma",
-    "deleteClass": "Excluir Turma",
-    "className": "Nome da Turma",
+    "classes": "Equipes",
+    "students": "Membros",
+    "professors": "Líderes",
+    "createClass": "Nova Equipe",
+    "editClass": "Editar Equipe",
+    "deleteClass": "Excluir Equipe",
+    "className": "Nome da Equipe",
+    "owner": "Proprietário",
+    "teamId": "ID da Equipe (Token)",
+    "members": "Membros",
+    "leaders": "Líderes",
     "classDescription": "Descrição",
-    "manageStudents": "Gerenciar Alunos",
-    "manageProfessors": "Gerenciar Professores",
-    "confirmDelete": "Tem certeza que deseja excluir esta turma?",
-    "deleteWarning": "Esta ação não pode ser desfeita."
+    "manageStudents": "Gerenciar Membros",
+    "manageProfessors": "Gerenciar Líderes",
+    "confirmDelete": "Tem certeza que deseja excluir esta equipe?",
+    "deleteWarning": "Esta ação não pode ser desfeita.",
+    "searchPlaceholder": "Buscar equipes ou departamentos...",
+    "emptyState": "Nenhuma equipe cadastrada. Clique em \"+ Nova Equipe\" para começar.",
+    "emptyFilter": "Nenhuma equipe encontrada com o termo"
   },
   "profile": {
     "title": "Perfil",

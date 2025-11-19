@@ -5,7 +5,6 @@ import {
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
-  User as FirebaseUser,
   signInWithPopup,
   GoogleAuthProvider
 } from "firebase/auth";
@@ -31,48 +30,61 @@ export interface AuthResponse {
   message?: string;
 }
 
-export interface User {
-  id: string;
-  full_name: string;
-  username: string;
-  email: string;
-}
-
 export const authService = {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       return { success: true, message: 'Login realizado com sucesso' };
     } catch (error: any) {
-      throw new Error(error.message || 'Erro ao fazer login');
+      console.error("Erro Login:", error);
+      let message = "Erro ao fazer login";
+      if (error.code === 'auth/invalid-credential') message = "E-mail ou senha incorretos.";
+      if (error.code === 'auth/user-not-found') message = "Usuário não encontrado.";
+      if (error.code === 'auth/wrong-password') message = "Senha incorreta.";
+      throw new Error(message);
     }
   },
 
   async register(data: RegisterData): Promise<AuthResponse> {
     try {
+      // 1. Cria o usuário no Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       
-      // Atualizar perfil com nome
+      // 2. Atualiza o nome no perfil do Auth
       await updateProfile(userCredential.user, {
         displayName: data.fullName
       });
 
-      // Enviar email de verificação
-      await sendEmailVerification(userCredential.user);
+      // 3. Envia email de verificação (opcional, mas recomendado)
+      // await sendEmailVerification(userCredential.user);
 
-      // Salvar dados adicionais no Firestore (coleção leaders)
+      // 4. Salva dados no Firestore COM a flag de perfil completo
+      // IMPORTANTE: Aqui setamos isProfileComplete: true pois ele preencheu o form completo
       await setDoc(doc(db, "leaders", userCredential.user.uid), {
         full_name: data.fullName,
         username: data.username,
         email: data.email,
         cpf: data.cpf || '',
         birthDate: data.birthDate || '',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        isProfileComplete: true // <--- ESTA FLAG LIBERA O ACESSO NO DASHBOARD
       });
 
-      return { success: true, message: 'Conta criada! Verifique seu email para confirmar o cadastro.' };
+      return { success: true, message: 'Conta criada com sucesso!' };
     } catch (error: any) {
-      throw new Error(error.message || 'Erro ao criar conta');
+      console.error("Erro Registro:", error);
+      let message = "Erro ao criar conta";
+      
+      // Tratamento de erros comuns do Firebase
+      if (error.code === 'auth/email-already-in-use') {
+        message = "Este e-mail já está sendo usado por outra conta.";
+      } else if (error.code === 'auth/weak-password') {
+        message = "A senha é muito fraca. Use pelo menos 6 caracteres.";
+      } else if (error.code === 'auth/invalid-email') {
+        message = "O formato do e-mail é inválido.";
+      }
+      
+      throw new Error(message);
     }
   },
 
@@ -81,16 +93,17 @@ export const authService = {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       
-      // Salvar dados no Firestore se for novo usuário
       const docRef = doc(db, "leaders", result.user.uid);
       const docSnap = await getDoc(docRef);
       
       if (!docSnap.exists()) {
+        // Se é o primeiro acesso via Google, cria o doc mas MARCA COMO INCOMPLETO
         await setDoc(docRef, {
           full_name: result.user.displayName || '',
           username: result.user.email?.split('@')[0] || '',
           email: result.user.email || '',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          isProfileComplete: false // <--- FORÇA ABRIR O MODAL DE COMPLETAR CADASTRO
         });
       }
 
@@ -108,7 +121,8 @@ export const authService = {
     }
   },
 
-  async forgotPassword(email: string): Promise<AuthResponse> {
+  // ... manter os outros métodos (forgotPassword, etc) ...
+    async forgotPassword(email: string): Promise<AuthResponse> {
     try {
       await sendPasswordResetEmail(auth, email);
       return { 
@@ -121,57 +135,10 @@ export const authService = {
   },
 
   async resetPassword(token: string, newPassword: string, confirmPassword: string): Promise<AuthResponse> {
-    // Firebase handles password reset via email link
     return { 
       success: true, 
       message: 'Use o link enviado no email para redefinir sua senha' 
     };
-  },
-
-  async changePassword(currentPassword: string, newPassword: string, confirmPassword: string): Promise<AuthResponse> {
-    // This would require reauthentication in Firebase
-    return { 
-      success: true, 
-      message: 'Para alterar senha, use a opção "Esqueci minha senha"' 
-    };
-  },
-
-  async getProfile(): Promise<User | null> {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return null;
-
-      // Sempre retorna dados do Firebase Auth primeiro
-      const basicProfile = {
-        id: currentUser.uid,
-        full_name: currentUser.displayName || '',
-        username: currentUser.email?.split('@')[0] || '',
-        email: currentUser.email || ''
-      };
-
-      // Tenta buscar dados adicionais do Firestore, mas não falha se não conseguir
-      try {
-        const docRef = doc(db, "leaders", currentUser.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          return {
-            ...basicProfile,
-            full_name: data.full_name || basicProfile.full_name,
-            username: data.username || basicProfile.username,
-          };
-        }
-      } catch (firestoreError) {
-        // Ignora erros de permissão do Firestore e usa dados do Auth
-        console.log('Usando dados do Firebase Auth (Firestore indisponível)');
-      }
-
-      return basicProfile;
-    } catch (error: any) {
-      console.error('Erro ao buscar perfil:', error);
-      return null;
-    }
   },
 
   async updateProfile(fullName: string): Promise<AuthResponse> {
